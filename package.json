@@ -1,0 +1,12 @@
+{
+  "name": "my-html-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@capacitor/core": "latest",
+    "@capacitor/android": "latest",
+    "@capacitor/cli": "latest"
+  },
+  "scripts": {
+    "build": "echo 'Building...'"
+  }
+}
