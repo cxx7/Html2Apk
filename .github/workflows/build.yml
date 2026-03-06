@@ -1,30 +1,25 @@
-name: Build APK
-
-on:
-  push:
-    branches: [ main ]
+name: Build Android APK
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-java@v4
+        with: { distribution: 'temurin', java-version: '17' }
 
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - name: Build with Capacitor
+        run: |
+          npm install
+          npx cap add android
+          npx cap sync
+          cd android && ./gradlew assembleDebug
 
-    - name: Build APK
-      run: |
-        mkdir output
-        echo "APK build simulation" > output/app.apk
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app
-        path: output/app.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
