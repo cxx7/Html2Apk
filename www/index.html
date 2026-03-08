@@ -3,91 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مساعد الصيانة الذكي + OCR</title>
-    
+    <title>تطبيق صيانة السيارة المطور</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-
     <style>
-        :root { --p: #2c3e50; --s: #3498db; --g: #27ae60; --r: #e74c3c; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 10px; }
-        .card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h3 { color: var(--p); border-right: 4px solid var(--s); padding-right: 10px; margin-top: 0; }
+        :root { --p: #2c3e50; --s: #3498db; --g: #27ae60; --r: #e74c3c; --w: #f39c12; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; margin: 0; padding: 0; overflow-x: hidden; }
         
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
-        input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #ddd; outline: none; }
-        
-        button { cursor: pointer; font-weight: bold; border: none; transition: 0.3s; }
-        .btn-main { background: var(--g); color: white; width: 100%; }
-        .btn-ai { background: #6c5ce7; color: white; }
-        .btn-export { background: #2d3436; color: white; }
+        /* القائمة الجانبية */
+        .sidebar { position: fixed; right: -280px; top: 0; width: 280px; height: 100%; background: var(--p); color: white; transition: 0.3s; z-index: 1000; padding: 20px; box-sizing: border-box; box-shadow: -5px 0 15px rgba(0,0,0,0.2); }
+        .sidebar.active { right: 0; }
+        .sidebar h3 { border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 18px; }
+        .nav-btn { background: none; border: 1px solid #555; color: white; width: 100%; text-align: right; padding: 12px; margin-bottom: 10px; border-radius: 5px; cursor: pointer; }
+        .nav-btn:hover { background: #3e5871; }
 
-        #ocrStatus { font-size: 12px; color: var(--s); margin-top: 5px; }
-        .reminder-item { background: #fff3cd; padding: 10px; border-radius: 8px; margin-bottom: 5px; border-right: 4px solid #ffc107; }
-        .ai-box { background: #e1f5fe; padding: 15px; border-radius: 10px; border-right: 4px solid #03a9f4; line-height: 1.6; }
+        /* الواجهة الرئيسية */
+        header { background: var(--p); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 900; }
+        .menu-icon { font-size: 24px; cursor: pointer; }
+        .main-content { padding: 15px; }
+        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 10px; border: 1px solid #eee; text-align: center; font-size: 13px; }
-        th { background: var(--p); color: white; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+        input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; }
+        .btn-save { background: var(--g); color: white; border: none; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
+        
+        .ai-status { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
+        .rem-list { margin-top: 10px; }
+        .rem-item { background: #fff3cd; padding: 8px; border-radius: 5px; margin-bottom: 5px; font-size: 13px; border-right: 4px solid var(--w); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { padding: 10px; border: 1px solid #eee; text-align: center; font-size: 12px; }
+        th { background: #f2f2f2; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h3>🤖 استخراج البيانات بالذكاء الاصطناعي</h3>
-        <p style="font-size: 13px;">ارفع صورة الفاتورة لاستخراج التكلفة والنصوص تلقائياً:</p>
-        <input type="file" id="imageInput" accept="image/*" onchange="processImage()">
-        <div id="ocrStatus">جاهز لمعالجة الصور...</div>
-    </div>
+    <header>
+        <div class="menu-icon" onclick="toggleSidebar()">☰</div>
+        <div>سجل السيارة</div>
+        <div style="width: 24px;"></div>
+    </header>
 
-    <div class="card">
-        <h3>➕ إضافة سجل صيانة</h3>
-        <div class="grid">
-            <input type="number" id="cost" placeholder="التكلفة">
-            <input type="date" id="date">
-            <input type="text" id="desc" placeholder="الوصف / القطعة">
-            <input type="number" id="mileage" placeholder="الممشى الحالي">
-            <select id="type">
-                <option value="صيانة">صيانة</option>
-                <option value="إضافة">إضافة</option>
-            </select>
-            <button class="btn-main" onclick="addData()">حفظ في الذاكرة</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h3>⏰ التذكيرات القادمة</h3>
-        <div class="grid">
-            <input type="text" id="remDesc" placeholder="تذكير بـ (مثلاً زيت)">
-            <input type="number" id="remTarget" placeholder="عند ممشى (كم)">
-            <button class="btn-ai" onclick="addReminder()">ضبط تذكير</button>
-        </div>
-        <div id="remindersList" style="margin-top:10px;"></div>
-    </div>
-
-    <div class="card">
-        <button class="btn-export" onclick="exportToExcel()">📥 تصدير Excel</button>
-        <button class="btn-export" onclick="document.getElementById('importFile').click()">📤 استيراد Excel</button>
-        <input type="file" id="importFile" style="display:none" onchange="importFromExcel(event)">
+    <div class="sidebar" id="sidebar">
+        <button class="nav-btn" onclick="toggleSidebar()">✖ إغلاق القائمة</button>
         
-        <div class="ai-box" style="margin-top:15px;">
-            <strong>💡 تحليل الذكاء الاصطناعي:</strong>
-            <div id="aiAnalysis">أدخل بياناتك للحصول على نصائح مخصصة لصيانة سيارتك.</div>
+        <h3>🤖 استخراج البيانات من صورة</h3>
+        <input type="file" id="imageInput" accept="image/*" onchange="processImage()" style="width: 100%; background: white;">
+        <div id="ocrStatus" class="ai-status" style="color: #bdc3c7;">جاهز للمسح...</div>
+
+        <h3>⏰ ضبط تذكير جديد</h3>
+        <input type="text" id="remDesc" placeholder="اسم الخدمة (مثلاً: زيت)" style="width: 100%; margin-bottom: 5px;">
+        <select id="remType" onchange="toggleRemInput()" style="width: 100%; margin-bottom: 5px;">
+            <option value="km">تذكير بالممشى (كم)</option>
+            <option value="time">تذكير بعد مدة (أيام/شهور)</option>
+        </select>
+        <input type="number" id="remValue" placeholder="القيمة (كم أو أيام)" style="width: 100%; margin-bottom: 5px;">
+        <button onclick="addReminder()" style="background: var(--w); color: white; width: 100%; border: none; padding: 10px; border-radius: 5px;">حفظ التذكير</button>
+
+        <h3>📂 البيانات (Excel)</h3>
+        <button class="nav-btn" onclick="exportToExcel()">📥 تصدير إلى Excel</button>
+        <button class="nav-btn" onclick="document.getElementById('importFile').click()">📤 استيراد من Excel</button>
+        <input type="file" id="importFile" style="display:none" onchange="importFromExcel(event)">
+    </div>
+
+    <div class="main-content">
+        <div class="card">
+            <h3 style="margin-top:0;">➕ إضافة سجل صيانة</h3>
+            <div class="grid">
+                <input type="number" id="cost" placeholder="التكلفة">
+                <input type="date" id="date">
+                <input type="text" id="desc" placeholder="الوصف / القطعة">
+                <input type="number" id="mileage" placeholder="الممشى الحالي">
+                <select id="type">
+                    <option value="صيانة">صيانة</option>
+                    <option value="إضافة">إضافة</option>
+                </select>
+            </div>
+            <button class="btn-save" onclick="addData()">حفظ في الذاكرة</button>
         </div>
 
-        <div style="overflow-x:auto">
-            <table>
-                <thead>
-                    <tr>
-                        <th>التكلفة</th>
-                        <th>التاريخ</th>
-                        <th>الوصف</th>
-                        <th>الممشى</th>
-                        <th>حذف</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody"></tbody>
-            </table>
+        <div class="card" style="background: #e3f2fd; border-right: 5px solid #2196f3;">
+            <h3 style="margin-top:0;">💡 ملاحظات ذكية وتنبيهات</h3>
+            <div id="aiAnalysis">لا توجد بيانات كافية للتحليل حالياً.</div>
+            <div id="remindersList" class="rem-list"></div>
+        </div>
+
+        <div class="card">
+            <h3>📊 سجل العمليات</h3>
+            <div style="overflow-x:auto">
+                <table id="maintTable">
+                    <thead>
+                        <tr>
+                            <th>التكلفة</th>
+                            <th>التاريخ</th>
+                            <th>الممشى</th>
+                            <th>الوصف</th>
+                            <th>حذف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -95,33 +111,19 @@
     let maintenanceData = JSON.parse(localStorage.getItem('carLog')) || [];
     let reminders = JSON.parse(localStorage.getItem('carReminders')) || [];
 
-    // --- 1. وظيفة معالجة الصور (OCR) ---
-    async function processImage() {
-        const file = document.getElementById('imageInput').files[0];
-        const status = document.getElementById('ocrStatus');
-        if (!file) return;
-
-        status.innerText = "جاري القراءة... يرجى الانتظار (قد يستغرق ثواني)";
-        
-        try {
-            const { data: { text } } = await Tesseract.recognize(file, 'eng+ara');
-            status.innerText = "تمت القراءة بنجاح!";
-            
-            // محاولة استخراج الأرقام (كالتكلفة) من النص
-            const numbers = text.match(/\d+(\.\d+)?/g);
-            if (numbers) {
-                // نفترض أن أكبر رقم قد يكون السعر
-                const maxNum = Math.max(...numbers.map(Number));
-                document.getElementById('cost').value = maxNum;
-            }
-            document.getElementById('desc').value = text.substring(0, 50) + "..."; // وضع جزء من النص في الوصف
-            alert("تم استخراج بعض البيانات! يرجى مراجعتها وتصحيحها قبل الحفظ.");
-        } catch (e) {
-            status.innerText = "خطأ في قراءة الصورة.";
-        }
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('active');
     }
 
-    // --- 2. وظائف البيانات والتذكيرات ---
+    // --- وظيفة تصفير البيانات ---
+    function clearInputs() {
+        document.getElementById('cost').value = '';
+        document.getElementById('desc').value = '';
+        document.getElementById('mileage').value = '';
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    }
+
+    // --- وظيفة الإضافة ---
     function addData() {
         const entry = {
             cost: document.getElementById('cost').value || 0,
@@ -132,15 +134,55 @@
         };
         maintenanceData.push(entry);
         saveAll();
+        clearInputs(); // تصفير الحقول بعد الحفظ
+        alert("تم الحفظ بنجاح!");
     }
 
+    // --- نظام التذكير المطور ---
     function addReminder() {
-        reminders.push({
-            desc: document.getElementById('remDesc').value,
-            target: parseInt(document.getElementById('remTarget').value),
-            done: false
-        });
+        const desc = document.getElementById('remDesc').value;
+        const type = document.getElementById('remType').value;
+        const val = parseInt(document.getElementById('remValue').value);
+        
+        if(!desc || !val) return alert("يرجى ملء كافة البيانات");
+
+        let targetDate = null;
+        let targetKm = null;
+
+        if(type === 'km') {
+            const currentMileage = maintenanceData.length > 0 ? Math.max(...maintenanceData.map(d => d.mileage)) : 0;
+            targetKm = currentMileage + val;
+        } else {
+            let d = new Date();
+            d.setDate(d.getDate() + val);
+            targetDate = d.toISOString().split('T')[0];
+        }
+
+        reminders.push({ desc, type, val, targetKm, targetDate });
         saveAll();
+        document.getElementById('remDesc').value = '';
+        document.getElementById('remValue').value = '';
+        toggleSidebar();
+    }
+
+    // --- OCR استخراج البيانات من صورة ---
+    async function processImage() {
+        const file = document.getElementById('imageInput').files[0];
+        const status = document.getElementById('ocrStatus');
+        if (!file) return;
+        status.innerText = "جاري القراءة والتحليل...";
+        try {
+            const { data: { text } } = await Tesseract.recognize(file, 'eng+ara');
+            const numbers = text.match(/\d+(\.\d+)?/g);
+            if (numbers) {
+                document.getElementById('cost').value = Math.max(...numbers.map(Number));
+            }
+            document.getElementById('desc').value = text.substring(0, 30);
+            status.innerText = "تم استخراج البيانات!";
+            toggleSidebar();
+        } catch (e) {
+            status.innerText = "خطأ في المعالجة.";
+        }
     }
 
     function saveAll() {
@@ -149,70 +191,49 @@
         render();
     }
 
-    // --- 3. محرك التحليل (الذكاء الاصطناعي المبسط) ---
-    function runAIAnalysis() {
-        const analysisDiv = document.getElementById('aiAnalysis');
-        if (maintenanceData.length === 0) return;
-
-        const lastMileage = Math.max(...maintenanceData.map(d => d.mileage));
-        const totalSpent = maintenanceData.reduce((sum, item) => sum + parseFloat(item.cost), 0);
-
-        let advice = `إجمالي ما تم صرفه: ${totalSpent} ريال. الممشى الحالي: ${lastMileage} كم. <br>`;
-        
-        // نصيحة ذكية بناءً على الممشى
-        if (lastMileage > 80000) {
-            advice += "⚠️ تنبيه: سيارتك تجاوزت 80 ألف كم، ننصح بفحص سير التيمن وفحص سوائل القير.";
-        } else {
-            advice += "✅ حالة السيارة جيدة بناءً على الممشى.";
-        }
-
-        // فحص التذكيرات
-        reminders.forEach(r => {
-            if (lastMileage >= r.target) {
-                advice += `<br>🚨 <strong>تذكير عاجل:</strong> حان موعد ${r.desc} (المستهدف: ${r.target} كم).`;
-            }
+    function render() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        maintenanceData.sort((a,b) => b.mileage - a.mileage).forEach((item, i) => {
+            tbody.innerHTML += `<tr><td>${item.cost}</td><td>${item.date}</td><td>${item.mileage}</td><td>${item.desc}</td><td><button onclick="deleteData(${i})" style="color:var(--r); background:none; border:none;">✖</button></td></tr>`;
         });
 
-        analysisDiv.innerHTML = advice;
+        const rList = document.getElementById('remindersList');
+        const currentMileage = maintenanceData.length > 0 ? Math.max(...maintenanceData.map(d => d.mileage)) : 0;
+        const today = new Date();
+        
+        rList.innerHTML = '';
+        reminders.forEach(r => {
+            let statusText = r.type === 'km' ? `عند ${r.targetKm} كم (متبقي ${r.targetKm - currentMileage})` : `موعده ${r.targetDate}`;
+            rList.innerHTML += `<div class="rem-item">🔔 ${r.desc}: ${statusText}</div>`;
+        });
+
+        const totalSpent = maintenanceData.reduce((sum, item) => sum + parseFloat(item.cost), 0);
+        document.getElementById('aiAnalysis').innerHTML = `إجمالي المصروفات: <b>${totalSpent}</b> ريال | الممشى الحالي: <b>${currentMileage}</b> كم`;
     }
 
-    // --- 4. التصدير والاستيراد ---
+    function deleteData(i) { maintenanceData.splice(i, 1); saveAll(); }
+    
     function exportToExcel() {
         const ws = XLSX.utils.json_to_sheet(maintenanceData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data");
-        XLSX.writeFile(wb, "صيانة_السيارة.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Maintenance");
+        XLSX.writeFile(wb, "Car_Report.xlsx");
     }
 
     function importFromExcel(event) {
         const reader = new FileReader();
         reader.onload = (e) => {
-            const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
-            maintenanceData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            maintenanceData = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(e.target.result), {type: 'array'}).Sheets[XLSX.utils.book_new().SheetNames[0] || "Data"]);
             saveAll();
         };
         reader.readAsArrayBuffer(event.target.files[0]);
     }
 
-    function render() {
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
-        maintenanceData.sort((a,b) => b.mileage - a.mileage).forEach((item, i) => {
-            tbody.innerHTML += `<tr><td>${item.cost}</td><td>${item.date}</td><td>${item.desc}</td><td>${item.mileage}</td><td><button onclick="deleteData(${i})" style="color:red">X</button></td></tr>`;
-        });
-
-        const rList = document.getElementById('remindersList');
-        rList.innerHTML = '';
-        reminders.forEach(r => {
-            rList.innerHTML += `<div class="reminder-item">🔔 ${r.desc} عند ${r.target} كم</div>`;
-        });
-        
-        runAIAnalysis();
-    }
-
-    function deleteData(i) { maintenanceData.splice(i, 1); saveAll(); }
-
-    window.onload = render;
+    window.onload = () => {
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        render();
+    };
 </script>
 </body>
 </html>
