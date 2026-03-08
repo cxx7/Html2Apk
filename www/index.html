@@ -3,240 +3,255 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدير أسطول السيارات الذكي</title>
+    <title>مدير صيانة السيارات الذكي</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        :root { --p: #1a252f; --s: #3498db; --g: #2ecc71; --r: #e74c3c; --w: #f39c12; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f3f5; margin: 0; }
+        :root { --p: #2c3e50; --s: #3498db; --g: #27ae60; --r: #c0392b; --w: #f39c12; --bg: #ecf0f1; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; transition: 0.3s; }
         
-        /* القائمة الجانبية المنسدلة */
-        .sidebar { position: fixed; right: -300px; top: 0; width: 300px; height: 100%; background: var(--p); color: white; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; overflow-y: auto; padding-bottom: 50px; }
+        /* الهيدر والقائمة */
+        header { background: var(--p); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 1001; }
+        .car-info { display: flex; align-items: center; gap: 10px; }
+        .car-avatar { width: 35px; height: 35px; background: var(--s); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        
+        .sidebar { position: fixed; right: -320px; top: 0; width: 300px; height: 100%; background: #1a252f; color: white; transition: 0.4s; z-index: 2000; overflow-y: auto; padding: 20px 10px; }
         .sidebar.active { right: 0; }
-        .sidebar-header { padding: 20px; background: #111; display: flex; justify-content: space-between; align-items: center; }
-        
-        .collapsible-btn { background: #2c3e50; color: white; width: 100%; border: none; padding: 15px; text-align: right; border-bottom: 1px solid #34495e; cursor: pointer; display: flex; justify-content: space-between; }
-        .collapsible-content { display: none; padding: 15px; background: #34495e; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1500; }
 
-        /* الواجهة */
-        header { background: var(--p); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .car-selector { background: var(--s); color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; }
-        
-        .card { background: white; border-radius: 15px; padding: 15px; margin: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; }
-        .btn-full { grid-column: span 2; background: var(--g); color: white; font-weight: bold; border: none; }
+        /* الأقسام المنسدلة */
+        .menu-item { border-bottom: 1px solid #34495e; margin-bottom: 5px; }
+        .menu-trigger { width: 100%; background: none; border: none; color: white; padding: 15px; text-align: right; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; }
+        .menu-content { display: none; padding: 15px; background: #2c3e50; border-radius: 5px; }
 
-        .rem-item { background: #fff3cd; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-right: 5px solid var(--w); }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; border: 1px solid #eee; text-align: center; font-size: 13px; }
+        /* البطاقات */
+        .card { background: white; border-radius: 12px; padding: 18px; margin: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; width: 100%; box-sizing: border-box; }
+        .btn-save { background: var(--g); color: white; border: none; font-weight: bold; margin-top: 15px; cursor: pointer; grid-column: span 2; }
+        
+        /* التنبيهات */
+        .status-box { background: #d1ecf1; border-right: 5px solid var(--s); padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .reminder-card { background: #fff3cd; border-right: 5px solid var(--w); padding: 10px; margin-top: 8px; border-radius: 5px; font-size: 13px; }
+        
+        /* الجدول */
+        .table-wrap { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th, td { padding: 12px; border: 1px solid #eee; text-align: center; }
+        th { background: #f8f9fa; color: var(--p); }
+        .row-maintenance { border-right: 4px solid var(--w); }
+        .row-addition { border-right: 4px solid var(--s); }
     </style>
 </head>
 <body>
 
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
     <header>
         <div onclick="toggleSidebar()" style="cursor:pointer; font-size:24px;">☰</div>
-        <select id="activeCarSelect" class="car-selector" onchange="switchCar(this.value)"></select>
-        <div onclick="addCarPrompt()" style="cursor:pointer; font-size:20px;">➕</div>
+        <div class="car-info">
+            <div class="car-avatar" id="carIcon">🚗</div>
+            <select id="carSelector" onchange="switchCar(this.value)" style="width: auto; background: none; color: white; border: none; font-weight: bold; cursor: pointer;"></select>
+        </div>
+        <div onclick="addNewCar()" style="cursor:pointer; font-size:20px;">➕</div>
     </header>
 
     <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <span>إعدادات السيارة</span>
-            <span onclick="toggleSidebar()" style="cursor:pointer;">✖</span>
-        </div>
-
-        <button class="collapsible-btn" onclick="toggleCollapsible('ai-section')">🤖 استخراج البيانات من صورة <span>▼</span></button>
-        <div id="ai-section" class="collapsible-content">
-            <input type="file" id="imageInput" accept="image/*" onchange="processImage()" style="width:100%;">
-            <p id="ocrStatus" style="font-size:12px; color:#bdc3c7;">ارفع الفاتورة لتحليل التكلفة..</p>
-        </div>
-
-        <button class="collapsible-btn" onclick="toggleCollapsible('rem-section')">⏰ ضبط تذكير <span>▼</span></button>
-        <div id="rem-section" class="collapsible-content">
-            <input type="text" id="remDesc" placeholder="اسم الخدمة" style="width:100%; margin-bottom:10px;">
-            <select id="remType" style="width:100%; margin-bottom:10px;">
-                <option value="km">تذكير بالممشى (بعد كم؟)</option>
-                <option value="time">تذكير بالمدة (بعد أيام)</option>
-            </select>
-            <input type="number" id="remValue" placeholder="القيمة" style="width:100%; margin-bottom:10px;">
-            <button onclick="addReminder()" style="width:100%; background:var(--w); color:white; border:none;">ضبط</button>
-        </div>
-
-        <button class="collapsible-btn" onclick="toggleCollapsible('excel-section')">📂 إدارة ملفات Excel <span>▼</span></button>
-        <div id="excel-section" class="collapsible-content">
-            <button onclick="exportToExcel()" style="width:100%; margin-bottom:10px;">📥 تصدير البيانات</button>
-            <button onclick="document.getElementById('importFile').click()" style="width:100%;">📤 استيراد البيانات</button>
-            <input type="file" id="importFile" style="display:none" onchange="importFromExcel(event)">
-        </div>
+        <h2 style="text-align:center; color:var(--s);">القائمة الذكية</h2>
         
-        <button class="collapsible-btn" onclick="deleteCurrentCar()" style="color:var(--r); margin-top:20px;">🗑 حذف السيارة الحالية</button>
+        <div class="menu-item">
+            <button class="menu-trigger" onclick="toggleMenu('ai-area')">🤖 استخراج البيانات من صورة <span>▼</span></button>
+            <div id="ai-area" class="menu-content">
+                <input type="file" id="ocrInput" accept="image/*" onchange="ocrProcess()">
+                <p id="ocrLabel" style="font-size:12px; color:#bdc3c7;">اختر فاتورة لتحليلها..</p>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            <button class="menu-trigger" onclick="toggleMenu('rem-area')">⏰ ضبط تذكير (ممشى/وقت) <span>▼</span></button>
+            <div id="rem-area" class="menu-content">
+                <input type="text" id="rDesc" placeholder="مثلاً: زيت، فحمات" style="margin-bottom:8px;">
+                <select id="rType" style="margin-bottom:8px;">
+                    <option value="km">تذكير بالممشى (بعد كم؟)</option>
+                    <option value="days">تذكير زمني (بعد كم يوم؟)</option>
+                </select>
+                <input type="number" id="rVal" placeholder="القيمة" style="margin-bottom:8px;">
+                <button onclick="saveReminder()" style="background:var(--w); color:white; border:none;">تثبيت التذكير</button>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            <button class="menu-trigger" onclick="toggleMenu('backup-area')">💾 النسخ الاحتياطي وExcel <span>▼</span></button>
+            <div id="backup-area" class="menu-content">
+                <button onclick="exportToExcel()" style="margin-bottom:8px;">📥 تصدير ملف Excel</button>
+                <button onclick="document.getElementById('importFile').click()">📤 استيراد ملف Excel</button>
+                <input type="file" id="importFile" style="display:none" onchange="importExcel(event)">
+            </div>
+        </div>
+
+        <button onclick="deleteCar()" style="background:var(--r); color:white; border:none; width:90%; margin:20px auto; display:block; padding:10px; border-radius:5px;">🗑 حذف هذه السيارة</button>
     </div>
 
     <div class="main-content">
         <div class="card">
-            <h3>➕ إضافة عملية لـ <span id="currentCarNameDisplay">---</span></h3>
-            <div class="grid">
-                <input type="number" id="cost" placeholder="التكلفة">
-                <input type="date" id="date">
-                <input type="text" id="desc" placeholder="الوصف">
-                <input type="number" id="mileage" placeholder="الممشى المدخل">
-                <select id="type" class="btn-full"><option value="صيانة">صيانة</option><option value="إضافة">إضافة</option></select>
-                <button class="btn-full" onclick="addData()">حفظ في الذاكرة</button>
+            <h3 style="margin-top:0;">إضافة سجل لـ <span id="activeCarTitle">...</span></h3>
+            <div class="input-group">
+                <input type="number" id="fCost" placeholder="التكلفة">
+                <input type="date" id="fDate">
+                <input type="text" id="fDesc" placeholder="الوصف (زيت، صوفة..)">
+                <input type="number" id="fMileage" placeholder="الممشى المدخل">
+                <select id="fType" style="grid-column: span 2;">
+                    <option value="صيانة">نوع العملية: صيانة</option>
+                    <option value="إضافة">نوع العملية: إضافة/كماليات</option>
+                </select>
+                <button class="btn-save" onclick="handleSave()">حفظ السجل وتحديث الممشى</button>
             </div>
         </div>
 
-        <div class="card" style="background:#e8f4fd;">
-            <h3>📊 الحالة والذكاء الاصطناعي</h3>
-            <div id="aiStats"></div>
-            <div id="remindersList"></div>
+        <div class="card">
+            <div class="status-box" id="carStats"></div>
+            <div id="remindersDisplay"></div>
         </div>
 
-        <div class="card" style="overflow-x:auto;">
-            <table id="maintTable">
-                <thead><tr><th>التكلفة</th><th>التاريخ</th><th>الممشى</th><th>الوصف</th><th>حذف</th></tr></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
+        <div class="card" style="padding:10px;">
+            <div class="table-wrap">
+                <table id="mainTable">
+                    <thead><tr><th>التكلفة</th><th>التاريخ</th><th>الممشى</th><th>الوصف</th><th>حذف</th></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
 <script>
-    // هيكلة البيانات الجديدة: { 'Camry': { logs: [], reminders: [], totalMileage: 0, lastUpdate: '' } }
-    let carsData = JSON.parse(localStorage.getItem('fleetData')) || {};
-    let activeCar = localStorage.getItem('activeCar') || '';
+    let fleet = JSON.parse(localStorage.getItem('myFleet')) || {};
+    let activeID = localStorage.getItem('activeID') || "";
 
-    // --- وظائف القائمة والسيارات ---
-    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
-    function toggleCollapsible(id) {
-        const content = document.getElementById(id);
-        content.style.display = content.style.display === "block" ? "none" : "block";
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('active');
+        document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('active') ? 'block' : 'none';
     }
 
-    function addCarPrompt() {
+    function toggleMenu(id) {
+        const el = document.getElementById(id);
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function addNewCar() {
         let name = prompt("أدخل اسم السيارة (مثلاً: كامري 2008):");
-        if (name && !carsData[name]) {
-            carsData[name] = { logs: [], reminders: [], totalMileage: 0, lastDate: '' };
-            activeCar = name;
-            saveFleet();
-            updateCarSelectors();
+        if(name && !fleet[name]) {
+            fleet[name] = { logs: [], rems: [], totalKM: 0, lastDate: '', icon: '🚗' };
+            activeID = name;
+            sync();
         }
     }
 
-    function switchCar(name) {
-        activeCar = name;
-        localStorage.setItem('activeCar', name);
-        render();
-    }
+    function switchCar(val) { activeID = val; sync(); }
 
-    // --- منطق الممشى الذكي والتذكير ---
-    function addData() {
-        if (!activeCar) return alert("يرجى إضافة سيارة أولاً");
-        const car = carsData[activeCar];
-        const inputCost = parseFloat(document.getElementById('cost').value) || 0;
-        const inputDate = document.getElementById('date').value;
-        const inputMileage = parseInt(document.getElementById('mileage').value) || 0;
-        const inputDesc = document.getElementById('desc').value || '-';
+    function handleSave() {
+        if(!activeID) return alert("اختر سيارة أولاً");
+        let car = fleet[activeID];
+        let cost = parseFloat(document.getElementById('fCost').value) || 0;
+        let date = document.getElementById('fDate').value;
+        let kmInput = parseInt(document.getElementById('fMileage').value) || 0;
+        let desc = document.getElementById('fDesc').value || '-';
 
-        // منطق جمع الممشى الذكي
-        if (inputDate !== car.lastDate) {
-            car.totalMileage += inputMileage;
+        // منطق جمع الممشى الذكي حسب طلبك
+        if (date !== car.lastDate) {
+            car.totalKM += kmInput;
         } else {
-            // إذا نفس اليوم، نحدث الممشى لآخر قيمة فقط (لا نجمع مرتين)
-            let oldMileageInSameDay = car.logs.find(l => l.date === inputDate)?.mileage || 0;
-            car.totalMileage = (car.totalMileage - oldMileageInSameDay) + inputMileage;
+            // تحديث في نفس اليوم (نطرح القيمة السابقة لنفس اليوم إن وجدت)
+            let prevToday = car.logs.find(l => l.date === date)?.km || 0;
+            car.totalKM = (car.totalKM - prevToday) + kmInput;
         }
 
-        car.lastDate = inputDate;
-        car.logs.push({ cost: inputCost, date: inputDate, mileage: inputMileage, desc: inputDesc, type: document.getElementById('type').value });
+        car.lastDate = date;
+        car.logs.push({ cost, date, km: kmInput, desc, type: document.getElementById('fType').value });
         
-        saveFleet();
-        clearInputs();
-        alert("تم الحفظ وتحديث الممشى!");
+        sync();
+        clearInputFields();
+        alert("تم الحفظ بنجاح!");
     }
 
-    function addReminder() {
-        const car = carsData[activeCar];
-        const val = parseInt(document.getElementById('remValue').value);
-        const type = document.getElementById('remType').value;
-        const desc = document.getElementById('remDesc').value;
+    function saveReminder() {
+        let car = fleet[activeID];
+        let desc = document.getElementById('rDesc').value;
+        let type = document.getElementById('rType').value;
+        let val = parseInt(document.getElementById('rVal').value);
 
-        let target = (type === 'km') ? car.totalMileage + val : val; // إذا تاريخ يتم حفظ عدد الأيام
-        car.reminders.push({ desc, type, val, target, active: true, createdAt: new Date().toISOString().split('T')[0] });
+        if(!desc || !val) return;
         
-        saveFleet();
+        let target = (type === 'km') ? car.totalKM + val : val;
+        car.rems.push({ desc, type, target, active: true });
+        sync();
         toggleSidebar();
     }
 
-    // --- OCR والملفات ---
-    async function processImage() {
-        const status = document.getElementById('ocrStatus');
-        status.innerText = "جاري التحليل..";
-        const { data: { text } } = await Tesseract.recognize(document.getElementById('imageInput').files[0], 'eng+ara');
-        const price = text.match(/\d+(\.\d+)?/g);
-        if(price) document.getElementById('cost').value = Math.max(...price.map(Number));
-        document.getElementById('desc').value = text.substring(0, 20);
-        status.innerText = "تم الاستخراج!";
-        toggleCollapsible('ai-section');
+    async function ocrProcess() {
+        const label = document.getElementById('ocrLabel');
+        label.innerText = "جاري القراءة بالذكاء الاصطناعي..";
+        const result = await Tesseract.recognize(document.getElementById('ocrInput').files[0], 'eng+ara');
+        const prices = result.data.text.match(/\d+(\.\d+)?/g);
+        if(prices) document.getElementById('fCost').value = Math.max(...prices.map(Number));
+        document.getElementById('fDesc').value = result.data.text.substring(0, 30);
+        label.innerText = "تم المسح بنجاح!";
+        toggleMenu('ai-area');
     }
 
-    // --- الحفظ والرندرة ---
-    function saveFleet() {
-        localStorage.setItem('fleetData', JSON.stringify(carsData));
-        localStorage.setItem('activeCar', activeCar);
+    function sync() {
+        localStorage.setItem('myFleet', JSON.stringify(fleet));
+        localStorage.setItem('activeID', activeID);
         render();
     }
 
     function render() {
-        updateCarSelectors();
-        if (!activeCar) return;
+        const sel = document.getElementById('carSelector');
+        sel.innerHTML = Object.keys(fleet).map(k => `<option value="${k}" ${k===activeID?'selected':''}>${k}</option>`).join('');
         
-        document.getElementById('currentCarNameDisplay').innerText = activeCar;
-        const car = carsData[activeCar];
+        if(!activeID) return;
+        const car = fleet[activeID];
+        document.getElementById('activeCarTitle').innerText = activeID;
+        
+        // عرض الإحصائيات
+        let totalSpent = car.logs.reduce((s, l) => s + l.cost, 0);
+        document.getElementById('carStats').innerHTML = `💡 <b>الممشى الإجمالي:</b> ${car.totalKM} كم <br> 💰 <b>إجمالي المصاريف:</b> ${totalSpent} ريال`;
+
+        // عرض التذكيرات
+        const rDiv = document.getElementById('remindersDisplay');
+        rDiv.innerHTML = car.rems.map(r => {
+            let info = r.type==='km' ? `متبقي ${r.target - car.totalKM} كم` : `بعد ${r.target} يوم`;
+            return `<div class="reminder-card">⚠️ ${r.desc}: ${info}</div>`;
+        }).join('');
+
+        // الجدول
         const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
-        car.logs.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach((log, i) => {
-            tbody.innerHTML += `<tr><td>${log.cost}</td><td>${log.date}</td><td>${log.mileage}</td><td>${log.desc}</td><td onclick="deleteLog(${i})" style="color:red; cursor:pointer;">✖</td></tr>`;
-        });
-
-        // رندرة التذكيرات
-        const rList = document.getElementById('remindersList');
-        rList.innerHTML = '';
-        car.reminders.forEach(r => {
-            let msg = r.type === 'km' 
-                ? `باقي ${r.target - car.totalMileage} كم على صيانة ${r.desc}` 
-                : `تذكير ${r.desc} (بناءً على تاريخ الإضافة)`;
-            rList.innerHTML += `<div class="rem-item">🔔 ${msg}</div>`;
-        });
-
-        document.getElementById('aiStats').innerHTML = `إجمالي المصروفات: <b>${car.logs.reduce((s,l)=>s+l.cost,0)}</b> ريال <br> الممشى الإجمالي الحالي: <b>${car.totalMileage}</b> كم`;
+        tbody.innerHTML = car.logs.sort((a,b)=>new Date(b.date)-new Date(a.date)).map((l, i) => `
+            <tr class="${l.type==='صيانة'?'row-maintenance':'row-addition'}">
+                <td>${l.cost}</td><td>${l.date}</td><td>${l.km}</td><td>${l.desc}</td>
+                <td onclick="delLog(${i})" style="color:var(--r); cursor:pointer;">✖</td>
+            </tr>
+        `).join('');
     }
 
-    function updateCarSelectors() {
-        const sel = document.getElementById('activeCarSelect');
-        sel.innerHTML = Object.keys(carsData).map(name => `<option value="${name}" ${name===activeCar?'selected':''}>${name}</option>`).join('');
+    function delLog(i) { fleet[activeID].logs.splice(i,1); sync(); }
+    function deleteCar() { if(confirm("حذف السيارة؟")) { delete fleet[activeID]; activeID = Object.keys(fleet)[0] || ""; sync(); } }
+    function clearInputFields() {
+        document.getElementById('fCost').value = '';
+        document.getElementById('fDesc').value = '';
+        document.getElementById('fMileage').value = '';
+        document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
     }
 
-    function clearInputs() {
-        document.getElementById('cost').value = '';
-        document.getElementById('desc').value = '';
-        document.getElementById('mileage').value = '';
-        document.getElementById('date').value = new Date().toISOString().split('T')[0];
-    }
-
-    function deleteLog(i) { carsData[activeCar].logs.splice(i,1); saveFleet(); }
-    function deleteCurrentCar() { if(confirm("حذف السيارة؟")) { delete carsData[activeCar]; activeCar = Object.keys(carsData)[0] || ''; saveFleet(); } }
-
-    window.onload = () => { 
-        if(!activeCar && Object.keys(carsData).length > 0) activeCar = Object.keys(carsData)[0];
-        document.getElementById('date').value = new Date().toISOString().split('T')[0];
-        render(); 
+    window.onload = () => {
+        document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+        render();
     };
 
     function exportToExcel() {
-        const ws = XLSX.utils.json_to_sheet(carsData[activeCar].logs);
+        const ws = XLSX.utils.json_to_sheet(fleet[activeID].logs);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Logs");
-        XLSX.writeFile(wb, `${activeCar}_Report.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Sijil");
+        XLSX.writeFile(wb, `${activeID}_Backup.xlsx`);
     }
 </script>
 </body>
